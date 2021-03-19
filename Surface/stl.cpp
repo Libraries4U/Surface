@@ -1,6 +1,6 @@
 #include <Core/Core.h>
 
-#include <plugin/Eigen/Eigen.h>
+#include <Eigen/Eigen.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
 #include <Functions4U/Functions4U.h>

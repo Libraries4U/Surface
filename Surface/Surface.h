@@ -1,7 +1,7 @@
 #ifndef _GLCanvas_surface_h_
 #define _GLCanvas_surface_h_
 
-#include <plugin/Eigen/Eigen.h>
+#include <Eigen/Eigen.h>
 
 namespace Upp {
 
@@ -83,7 +83,7 @@ public:
 	friend Point3D operator-(const Point3D& a, const Point3D& b) {return Point3D(a.x-b.x, a.y-b.y, a.z-b.z);}
 	friend Point3D operator*(const Point3D& a, double b) 		 {return Point3D(a.x*b, a.y*b, a.z*b);}
 
-	double GetLength()	{return sqrt(x*x + y*y + z*z);}
+	double GetLength() const {return sqrt(x*x + y*y + z*z);}
 	Point3D &Normalize() {
 		double length = GetLength();
 		
@@ -99,6 +99,8 @@ public:
 	double Distance(const Point3D &p)  const {return sqrt(sqr(x-p.x) + sqr(y-p.y) + sqr(z-p.z));}
 	double Manhattan(const Point3D &p) const {return abs(x-p.x) + abs(y-p.y) + abs(z-p.z);}
 	double Manhattan() 				   const {return abs(x) + abs(y) + abs(z);}
+	
+	double Angle(const Point3D &p) const {return acos(dot(p)/(GetLength()*p.GetLength()));}
 	
 	void SimX() {x = -x;}
 	void SimY() {y = -y;}
@@ -197,6 +199,7 @@ bool PointInSegment(const Point3D &p, const Segment3D &seg);
 bool SegmentInSegment(const Segment3D &in, double in_len, const Segment3D &seg);
 bool SegmentInSegment(const Segment3D &in, const Segment3D &seg);
 
+Vector<double> GetPolyAngles(const Array<Pointf> &bound);
 
 template <typename T>
 inline T const& maxNotNull(T const& a, T const& b) {
@@ -254,7 +257,8 @@ public:
 		else
 			Upp::Swap(id[1], id[3]);
 	}
-	inline bool IsTriangle() const	{return id[0] == id[3];}
+	inline bool IsTriangle() const	{return id[0] == id[1] || id[0] == id[2] || id[0] == id[3] || 
+											id[1] == id[2] || id[1] == id[3] || id[2] == id[3];}
 	void RedirectTriangles();
 	void ShiftNodes(int shift);
 	inline int GetNumNodes() const	{return IsTriangle() ? 3 : 4;}
@@ -324,19 +328,20 @@ public:
 	double GetWaterPlaneArea() const;
 	void GetSurface();
 	void GetSegments();
+	double GetAvgLenSegment()	{return avgLenSegment;}
 	void GetVolume();
 	Point3D GetCenterOfBuoyancy() const;
 	void GetHydrostaticStiffness(Eigen::MatrixXd &c, const Point3D &cb, double rho, const Point3D &cg, double mass, double g);
 	static Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
 	static Array<Pointf> Point3dto2D(const Vector<Point3D> &bound);
-	void AddWaterSurface(const Surface &surf, const Surface &under, char c);
+	void AddWaterSurface(Surface &surf, const Surface &under, char c);
 	Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf);
 	char IsWaterPlaneMesh() const; 
 	
-	void CutX(const Surface &orig, double factor = 1);
-	void CutY(const Surface &orig, double factor = 1);
-	void CutZ(const Surface &orig, double factor = 1);
+	void CutX(const Surface &orig, int factor = 1);
+	void CutY(const Surface &orig, int factor = 1);
+	void CutZ(const Surface &orig, int factor = 1);
 	
 	void Join(const Surface &orig);
 	Vector<Vector<int>> GetPanelSets(Function <void(String, int pos)> Status);
@@ -350,6 +355,7 @@ public:
 	bool healing{false};
 	int numTriangles, numBiQuads, numMonoQuads;
 	Vector<Segment> segments;
+	double avgLenSegment = -1;
 	int numDupPan, numDupP, numSkewed, numUnprocessed;
 	
 	double surface = -1, volume = -1, volumex = -1, volumey = -1, volumez = -1;
@@ -369,7 +375,7 @@ public:
 	void AddFlatPanel(double lenX, double lenY, double panelWidth);
 	void AddRevolution(Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-	void AddPolygonalPanel2(Array<Pointf> &poly, double panelWidth);
+	void AddPolygonalPanel2(Array<Pointf> &poly, double panelWidth, bool adjustSize);
 		
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
@@ -388,6 +394,7 @@ private:
 	
 	static void DetectTriBiP(Vector<Panel> &panels, int &numTri, int &numBi, int &numP);
 	int FixSkewed();
+	bool FixSkewed(int ipanel);
 	int SegmentInSegments(int iseg) const;
 	void AnalyseSegments(double zTolerance);
 	void AddSegment(int ip0, int ip1, int ipanel);
@@ -398,6 +405,9 @@ private:
 	static int PanelGetNumNodes(const Vector<Panel> &_panels, int ip) {return _panels[ip].GetNumNodes();}
 	bool IsPanelTriangle(int ip) 	{return panels[ip].IsTriangle();}
 	void GetPanelParams(Panel &panel) const;
+	void JointTriangularPanels(int ip0, int ip1, int inode0, int inode1);
+	bool FindMatchingPanels(const Array<PanelPoints> &pans, double x, double y, 
+							double panelWidth, int &idpan1, int &idpan2);
 	
 	Vector<int> selPanels, selNodes;
 };
